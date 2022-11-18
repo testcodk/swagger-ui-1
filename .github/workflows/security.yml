@@ -1,0 +1,51 @@
+name: Dependabot fetch metadata
+on: pull_request
+
+permissions:
+  pull-requests: write
+  contents: write
+
+jobs:
+  dependabot:
+    runs-on: ubuntu-latest
+    if: ${{ github.actor == 'dependabot[bot]'}}
+    steps:
+      - name: Dependabot metadata
+        id: dependabot-metadata
+        uses: dependabot/fetch-metadata@v1.1.1
+        with:
+          github-token: "${{ secrets.PAT_TOKEN }}"
+      - name: Jira Integration
+        env:
+          GH_SECURITY_TOKEN: ${{ secrets.PAT_TOKEN }}
+          JIRA_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+        run: |
+           jira_ticket() {
+           cat <<- EOF
+            {
+           "fields":{
+           "project":{
+           "key":"PGS"
+           },
+           "summary":"${{ github.actor }} alert from $GITHUB_REPOSITORY",
+           "description":"Further details of the alert can be seen here ${{ github.event.pull_request.html_url }}",
+           "assignee":{
+           "name":"pgs-user"
+           },
+           "issuetype":{
+           "name":"Incident"
+           },
+           "priority":{
+           "name":"Low"
+           },
+           "labels":[
+           "Dependabot"
+           ]
+           } 
+           }
+           EOF
+           } 
+             curl -sH "Authorization: Bearer ${JIRA_TOKEN}" -X POST --data "$(jira_ticket)" \
+                             -H "Content-Type: application/json" https://jira.sixt.com/rest/api/2/issue/
+          
+        shell: bash
